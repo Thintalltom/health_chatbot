@@ -164,8 +164,8 @@ export function ScheduledPatients() {
   const handleAction = (patient: PatientData) => (
     <button
       onClick={() => navigate(`/patient/${patient.id}`)}
-      className="p-2 rounded-lg hover:bg-gray-100 transition-colors inline-flex items-center justify-center text-[#BCBCBC] group-hover:text-[#418BF5]">
-      <EyeIcon className="w-5 h-5" strokeWidth={2} />
+      className="p-2 rounded-lg hover:bg-gray-100 transition-colors inline-flex items-center justify-center text-[#7A7A7A] group-hover:text-[#418BF5]">
+      <EyeIcon className="w-5 h-5 text-[#7A7A7A]" strokeWidth={2} />
     </button>
   );
 

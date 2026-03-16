@@ -3,7 +3,6 @@ import {
   SparklesIcon,
   MoreHorizontalIcon,
   StethoscopeIcon,
-  PillIcon,
   FileTextIcon,
   SendIcon,
   Plus,
@@ -12,6 +11,9 @@ import {
 } from
   'lucide-react';
 import ChatIcon from '../../assets/svgs/ChatIcon.svg'
+import sendIcon from '../../assets/svgs/send-2.svg'
+import pillsIcon from '../../assets/svgs/pills.svg'
+import vectorIcon from '../../assets/svgs/Vector.svg'
 export function AIAssistant() {
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -130,7 +132,7 @@ export function AIAssistant() {
             {/* Typing Circle */}
             {isTyping && messages.length === 0 && (
               <div className="relative mb-4 flex flex-col gap-[20px]">
-                <div className="w-[180px] h-[180px] rounded-full bg-gradient-to-br from-[#a8d4ff] to-[#418BF5] shadow-[0_20px_40px_-10px_rgba(65,139,245,0.4)]"></div>
+                <div className="w-[180px] h-[180px] rounded-full bg-gradient-to-br from-[#E9E9E9] to-[#737373] shadow-sm"></div>
 
                 <div className="text-center space-y-1 mb-4">
                   <p className="font-satoshi text-[14px] text-[#353535]">Hi Joanne,</p>
@@ -183,7 +185,7 @@ export function AIAssistant() {
 
               <button className="flex-1 bg-[#FAFAFA] border border-[#F4F5F6] rounded-xl p-2 flex flex-col gap-2 hover:shadow-md transition-all group text-left">
                 <div className="w-7 h-7 rounded-lg bg-[#EBFFFD] border border-[#D9FFFB] flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <PillIcon className="w-3 h-3 text-[#14B8A6]" strokeWidth={2.5} />
+                  <img src={pillsIcon} alt="Pills" className="w-3 h-3" />
                 </div>
                 <span className="font-mulish font-medium text-[10px] text-[#080E0D]">
                   Medication Care
@@ -192,10 +194,7 @@ export function AIAssistant() {
 
               <button className="flex-1 bg-[#FAFAFA] border border-[#F4F5F6] rounded-xl p-2 flex flex-col gap-2 hover:shadow-md transition-all group text-left">
                 <div className="w-7 h-7 rounded-lg bg-[#FFF7EA] border border-[#FFF1DA] flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <FileTextIcon
-                    className="w-3 h-3 text-[#F59E0B]"
-                    strokeWidth={2.5} />
-
+                  <FileTextIcon className="w-3 h-3 text-[#F59E0B]" strokeWidth={2.5} />
                 </div>
                 <span className="font-mulish font-medium text-[10px] text-[#080E0D]">
                   Medical Records
@@ -222,7 +221,7 @@ export function AIAssistant() {
             <button
               onClick={handleSendMessage}
               className={`w-12 h-12 flex-shrink-0 rounded-xl flex items-center justify-center transition-colors shadow-sm ${inputValue.length > 0 ? 'bg-[#418BF5] hover:bg-[#2563EB]' : 'bg-[#A9CCFF] hover:bg-[#A9CCFF]'}`}>
-              <SendIcon className="w-5 h-5 text-white ml-1" strokeWidth={2.5} />
+              <img src={sendIcon} alt='send icon' className='w-5 h-5' />
             </button>
           </div>
         </div>

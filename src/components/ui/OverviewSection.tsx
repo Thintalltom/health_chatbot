@@ -1,16 +1,13 @@
 import React from 'react';
-import {
-  BarChart3Icon,
-  UsersIcon,
-  ActivityIcon,
-  CheckSquareIcon,
-  ClockIcon
-} from
-  'lucide-react';
 import statusUp from '../../assets/svgs/status-up.svg';
 import verify from '../../assets/svgs/verify.svg';
 import calendar from '../../assets/svgs/calendar.svg';
 import chart from '../../assets/svgs/chart.svg';
+import peopleIcon from '../../assets/svgs/people.png';
+import stethoscopeIcon from '../../assets/svgs/stethoscope.png';
+import taskSquareIcon from '../../assets/svgs/task-square.png';
+import clockIcon from '../../assets/svgs/clock.png';
+import chartIcon from '../../assets/svgs/chart.png';
 interface StatCardProps {
   title: string;
   value: string | number;
@@ -26,7 +23,7 @@ function StatCard({ title, value, icon, iconColor, bgIcon }: StatCardProps) {
           {title}
         </h3>
         <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 shadow-[0px_1px_2px_rgba(0,0,0,0.1)] border border-[#F2F2F2]"
           style={{ backgroundColor: iconColor }}>
           {icon}
         </div>
@@ -48,10 +45,7 @@ export function OverviewSection() {
   return (
     <div className="w-full rounded-[28px] border border-[#F2F2F2] bg-[#F4F5F6] p-5 shadow-sm">
       <div className="flex flex-row gap-3 items-center ml-2 mb-5">
-        <BarChart3Icon
-          className="w-[22px] h-[22px] text-[#6AA7FF]"
-          strokeWidth={2.5} />
-
+        <img src={chartIcon} alt="Chart" className="w-[22px] h-[22px]" />
         <h2 className="font-satoshi font-medium text-[20px] text-[#080E0D]">
           Overview
         </h2>
@@ -62,39 +56,36 @@ export function OverviewSection() {
           title="Total Patients"
           value="150"
           icon={
-            <UsersIcon className="w-5 h-5 text-[#080E0D]" strokeWidth={2} />
+            <img src={peopleIcon} alt="People" className="w-5 h-5" />
           }
-          iconColor="#E8F3FF"
+          iconColor="#ffffff"
           bgIcon={chart} />
 
         <StatCard
           title="Total Consultations"
           value="600"
           icon={
-            <ActivityIcon className="w-5 h-5 text-[#418BF5]" strokeWidth={2} />
+            <img src={stethoscopeIcon} alt="Stethoscope" className="w-5 h-5" />
           }
-          iconColor="#E3F2FD"
+          iconColor="#ffffff"
           bgIcon={statusUp} />
 
         <StatCard
           title="Completed Consultations"
           value="420"
           icon={
-            <CheckSquareIcon
-              className="w-5 h-5 text-[#2CA913]"
-              strokeWidth={2} />
-
+            <img src={taskSquareIcon} alt="Task Square" className="w-5 h-5" />
           }
-          iconColor="#E8F5E9"
+          iconColor="#ffffff"
           bgIcon={verify} />
 
         <StatCard
           title="Patients Waiting"
           value="8"
           icon={
-            <ClockIcon className="w-5 h-5 text-[#FFC107]" strokeWidth={2} />
+            <img src={clockIcon} alt="Clock" className="w-5 h-5" />
           }
-          iconColor="#FFF8E1"
+          iconColor="#ffffff"
           bgIcon={calendar} />
 
       </div>

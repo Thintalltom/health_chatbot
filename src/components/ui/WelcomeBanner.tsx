@@ -1,4 +1,5 @@
 import Person from '../../assets/svgs/person.svg'
+import sun from '../../assets/svgs/sun.svg'
 export function WelcomeBanner() {
   return (
     <div
@@ -9,8 +10,8 @@ export function WelcomeBanner() {
       }}>
 
       <div className="max-w-[600px] relative z-10 flex flex-col items-start">
-        <h1 className="font-satoshi font-medium text-[36px] text-white tracking-tight mb-3">
-          Welcome, Dr Joanne! 👋
+        <h1 className="font-satoshi font-medium text-[36px] flex gap-[2px] items-center text-white tracking-tight mb-3">
+          Welcome, Dr Joanne! <span> <img src={sun}  alt='weather' /></span>
         </h1>
         <p className="font-satoshi text-[18px] text-[#FAFAFA] opacity-90 leading-relaxed mb-8 max-w-[540px]">
           Lorem ipsum elementum maecenas placerat faucibus bibendum senectus
