@@ -14,7 +14,7 @@ import temperature from '../assets/svgs/temperature.svg'
 import calendar2 from '../assets/svgs/calendar-2.svg';
 import Ruler from '../assets/svgs/Ruler.svg'
 import heartIcon from '../assets/svgs/heart.svg'
-import ID from '../assets/svgs/id.svg'
+import ID from '../assets/svgs/ID.svg'
 import calender3 from '../assets/svgs/calendar-3.svg'
 import gender from '../assets/svgs/user.svg'
 import chatIcon from '../assets/svgs/messages-2.png'
