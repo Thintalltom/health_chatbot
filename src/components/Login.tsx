@@ -1,37 +1,58 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
-import loginImage from '../assets/svgs/image 5.svg'; // Using existing image, you can replace with a specific login image
+import { useLoginMutation } from '../store/slices/apiSlice';
+import { useAppDispatch } from '../store/hooks';
+import { setCredentials, setLoading } from '../store/slices/authSlice';
+// import loginImage from '../assets/svgs/image 5.svg';
 
 export function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
-
-    // Dummy credentials
-    const DUMMY_EMAIL = 'admin@medaux.com';
-    const DUMMY_PASSWORD = 'password123';
+    const dispatch = useAppDispatch();
+    
+    const [login, { isLoading }] = useLoginMutation();
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        setIsLoading(true);
+        dispatch(setLoading(true));
 
-        // Simulate loading
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        if (email === DUMMY_EMAIL && password === DUMMY_PASSWORD) {
-            // Store login state in localStorage
-            localStorage.setItem('isLoggedIn', 'true');
-            navigate('/');
-        } else {
-            setError('Invalid email or password. Please try again.');
+        try {
+            const result = await login({ email, password }).unwrap();
+            
+            // The API returns access_token and user directly
+            if (result.access_token && result.user) {
+                // Store credentials in Redux and localStorage
+                dispatch(setCredentials({
+                    user: result.user,
+                    token: result.access_token
+                }));
+                
+                // Navigate to dashboard
+                navigate('/');
+            } else {
+                setError('Login failed. Please try again.');
+            }
+        } catch (err: any) {
+            console.error('Login error:', err);
+            
+            // Handle different error types
+            if (err.status === 401) {
+                setError('Invalid email or password. Please check your credentials.');
+            } else if (err.status === 400) {
+                setError(err.data?.message || 'Please check your input and try again.');
+            } else if (err.status >= 500) {
+                setError('Server error. Please try again later.');
+            } else {
+                setError(err.data?.message || 'An error occurred. Please try again.');
+            }
+        } finally {
+            dispatch(setLoading(false));
         }
-        
-        setIsLoading(false);
     };
 
     return (
@@ -124,17 +145,7 @@ export function Login() {
                         )}
 
                         {/* Demo Credentials */}
-                        <div className="bg-[#F0F9FF] border border-[#BAE6FD] rounded-lg p-3">
-                            <p className="font-mulish text-[12px] text-[#0369A1] mb-1">
-                                <strong>Demo Credentials:</strong>
-                            </p>
-                            <p className="font-mulish text-[12px] text-[#0369A1]">
-                                Email: admin@medaux.com
-                            </p>
-                            <p className="font-mulish text-[12px] text-[#0369A1]">
-                                Password: password123
-                            </p>
-                        </div>
+                       
 
                         {/* Login Button */}
                         <button

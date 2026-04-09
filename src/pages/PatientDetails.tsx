@@ -1,5 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useStartConsultationMutation, useGetActiveConsultationQuery } from '../store/slices/dashboardApiSlice';
+import {
+    useGetPatientByIdQuery,
+    useGetPatientVitalsQuery,
+    useGetPatientHistoryQuery
+} from '../store/slices/patientApiSlice';
 import { Breadcrumb } from '../components/ui/Breadcrumb';
 import { StatCard } from '../components/ui/StatCard';
 import { ReusableLineChart } from '../components/ui/ReusableLineChart';
@@ -177,20 +183,124 @@ const medicalCheckupData: { [key: number]: MedicalCheckup[] } = {
 export function PatientDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const [startConsultation, { isLoading: isStartingConsultation }] = useStartConsultationMutation();
+    const { data: activeConsultation, refetch: refetchActiveConsultation } = useGetActiveConsultationQuery();
     const [currentPage, setCurrentPage] = useState(0);
     const [currentSlide, setCurrentSlide] = useState(0);
     const [selectedDate, setSelectedDate] = useState<string>('');
     const [showCalendar, setShowCalendar] = useState(false);
     const checkupsPerPage = 3;
 
+    // Fetch patient data from API
+    const { data: patient, isLoading: patientLoading, error: patientError } = useGetPatientByIdQuery(id!, { skip: !id });
+    const { data: patientVitals, isLoading: vitalsLoading, error: vitalsError } = useGetPatientVitalsQuery(id!, { skip: !id });
+    const { data: patientHistory, isLoading: historyLoading, error: historyError } = useGetPatientHistoryQuery(id!, { skip: !id });
+
+    // Log the fetched data
+    useEffect(() => {
+        if (patient) {
+            console.log('Patient Data:', patient);
+        }
+        if (patientVitals) {
+            console.log('Patient Vitals:', patientVitals);
+        }
+        if (patientHistory) {
+            console.log('Patient History:', patientHistory);
+        }
+    }, [patient, patientVitals, patientHistory]);
+
     const heartImages = [heart, temperature, lungs]; // Array of images for slider
 
-    // Slider content data
+    // Get latest vitals for display
+    const latestVitals = patientVitals && patientVitals.length > 0 ? patientVitals[0] : null;
+
+    // Slider content data using real vitals or defaults
     const sliderContent = [
-        { title: 'Blood Pressure', icon: <Heart className="w-6 h-6 text-[#E74C3C]" strokeWidth={2} />, rate: '120/80 mmHg' },
-        { title: 'Temperature', icon: <Thermometer className="w-6 h-6 text-[#FF6B35]" strokeWidth={2} />, rate: '36.5°C' },
-        { title: 'Respiratory System', icon: <Wind className="w-6 h-6 text-[#4ECDC4]" strokeWidth={2} />, rate: '16 bpm' }
+        {
+            title: 'Blood Pressure',
+            icon: <Heart className="w-6 h-6 text-[#E74C3C]" strokeWidth={2} />,
+            rate: latestVitals?.blood_pressure || '120/80 mmHg'
+        },
+        {
+            title: 'Temperature',
+            icon: <Thermometer className="w-6 h-6 text-[#FF6B35]" strokeWidth={2} />,
+            rate: latestVitals?.temperature ? `${latestVitals.temperature}°C` : '36.5°C'
+        },
+        {
+            title: 'Respiratory System',
+            icon: <Wind className="w-6 h-6 text-[#4ECDC4]" strokeWidth={2} />,
+            rate: latestVitals?.respiratory_rate ? `${latestVitals.respiratory_rate} bpm` : '16 bpm'
+        }
     ];
+
+    const handleStartConsultation = async () => {
+        if (!patient) return;
+
+        try {
+            const vitalsData = {
+                blood_pressure: latestVitals?.blood_pressure || sliderContent[0].rate,
+                temperature: latestVitals?.temperature || sliderContent[1].rate,
+                respiratory_rate: latestVitals?.respiratory_rate || sliderContent[2].rate,
+                notes: 'Starting consultation from patient details'
+            };
+
+            try {
+                const result = await startConsultation({
+                    patient_id: patient.id,
+                    vitals: vitalsData,
+                }).unwrap();
+
+                console.log('=== PATIENT DETAILS CONSULTATION DEBUG ===');
+                console.log('Full API Response:', JSON.stringify(result, null, 2));
+                console.log('Response ID field:', result.id);
+                console.log('Response patient_id field:', result.patient_id);
+                console.log('Original patient ID:', patient.id);
+                console.log('ID === patient_id?', result.id === result.patient_id);
+                console.log('ID === original patient?', result.id === patient.id);
+                console.log('==========================================');
+                
+                // Navigate to consultation page with the consultation ID
+                const consultationId = result.id || patient.id;
+                navigate(`/consultation/${consultationId}`);
+                
+            } catch (error: any) {
+                console.error('Consultation error:', error);
+                
+                // Check if user already has an active consultation
+                if (error?.data?.detail?.includes('already have an active consultation') || 
+                    error?.message?.includes('already have an active consultation')) {
+                    
+                    console.log('User has active consultation, fetching active consultation details...');
+                    
+                    try {
+                        // Refetch active consultation to get the correct consultation ID
+                        const activeConsultationResult = await refetchActiveConsultation();
+                        const activeConsultationId = activeConsultationResult.data?.id;
+                        
+                        if (activeConsultationId) {
+                            console.log('Found active consultation ID:', activeConsultationId);
+                            navigate(`/consultation/${activeConsultationId}`);
+                        } else {
+                            console.log('No active consultation ID found, using patient ID as fallback');
+                            navigate(`/consultation/${patient.id}`);
+                        }
+                    } catch (fetchError) {
+                        console.error('Error fetching active consultation:', fetchError);
+                        // Fallback to patient ID
+                        navigate(`/consultation/${patient.id}`);
+                    }
+                    
+                } else {
+                    // Handle other errors
+                    alert('Failed to start consultation. Please try again.');
+                    throw error;
+                }
+            }
+
+        } catch (error) {
+            console.error('Failed to start consultation:', error);
+        }
+    };
 
     // Sample heart rate data
     const heartRateData = [
@@ -203,11 +313,15 @@ export function PatientDetails() {
         { name: 'Jul', value: 70 }
     ];
 
-    const patient = useMemo(() => {
-        return patientsData.find(p => p.id === Number(id));
-    }, [id]);
+    if (patientLoading) {
+        return (
+            <div className="text-center py-20">
+                <p className="text-[18px] text-[#080E0D]">Loading patient details...</p>
+            </div>
+        );
+    }
 
-    if (!patient) {
+    if (patientError || !patient) {
         return (
             <div className="text-center py-20">
                 <p className="text-[18px] text-[#080E0D]">Patient not found</p>
@@ -298,18 +412,19 @@ export function PatientDetails() {
                         </div>
                     </div>
                     <button
-                        onClick={() => navigate(`/consultation/${patient.id}`)}
-                        className="bg-gradient-to-r from-[#418BF5] via-[#418BF5] to-[#1F5EDB] flex gap-[12px] hover:from-[#3A7BD5] hover:via-[#3A7BD5] hover:to-[#1A52C7] transition-all text-white h-[46px] w-[225px] font-satoshi font-bold text-[16px] px-6 py-3 rounded-xl shadow-sm"
+                        onClick={handleStartConsultation}
+                        disabled={isStartingConsultation}
+                        className="bg-gradient-to-r from-[#418BF5] via-[#418BF5] to-[#1F5EDB] flex gap-[12px] hover:from-[#3A7BD5] hover:via-[#3A7BD5] hover:to-[#1A52C7] transition-all text-white h-[46px] w-[225px] font-satoshi font-bold text-[16px] px-6 py-3 rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <span><img src={chatIcon} /></span>
-                        Start Consultations
+                        {isStartingConsultation ? 'Starting...' : 'Start Consultations'}
                     </button>
                 </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     title="Weight"
-                    value={`75kg`}
+                    value={latestVitals?.weight ? `${latestVitals.weight}kg` : '75kg'}
                     icon={
                         <img src={scale} alt="" className="w-5 h-5" />
                     }
@@ -318,7 +433,7 @@ export function PatientDetails() {
 
                 <StatCard
                     title="Height"
-                    value="187cm"
+                    value={latestVitals?.height ? `${latestVitals.height}cm` : '187cm'}
                     icon={
                         <img src={Ruler} alt="" className="w-5 h-5" />
                     }
@@ -327,7 +442,7 @@ export function PatientDetails() {
 
                 <StatCard
                     title="Pulse Rate"
-                    value="72bpm"
+                    value={latestVitals?.heart_rate ? `${latestVitals.heart_rate}bpm` : '72bpm'}
                     icon={
                         <img src={heartIcon} alt="" className="w-5 h-5" />
                     }
@@ -336,7 +451,7 @@ export function PatientDetails() {
 
                 <StatCard
                     title="Last Visit Date"
-                    value={'Jan 25, 2026'}
+                    value={latestVitals?.recorded_at ? new Date(latestVitals.recorded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Jan 25, 2026'}
                     icon={
                         <img src={calendar2} alt="" className="w-5 h-5" />
                     }
@@ -526,29 +641,40 @@ export function PatientDetails() {
                         <div className="text-center">Action</div>
                     </div>
 
-                    {/* Table Body - Paginated */}
+                    {/* Table Body - Real History Data */}
                     <div>
-                        {medicalCheckupData[patient.id]
-                            ?.slice(currentPage * checkupsPerPage, (currentPage + 1) * checkupsPerPage)
-                            .map((checkup) => (
+                        {historyLoading ? (
+                            <div className="p-8 text-center">
+                                <p className="text-[#7A7A7A]">Loading history...</p>
+                            </div>
+                        ) : historyError ? (
+                            <div className="p-8 text-center">
+                                <p className="text-red-500">Error loading history</p>
+                            </div>
+                        ) : !patientHistory?.history || patientHistory.history.length === 0 ? (
+                            <div className="p-8 text-center">
+                                <p className="text-[#7A7A7A]">No history found</p>
+                            </div>
+                        ) : (
+                            patientHistory.history.slice(currentPage * checkupsPerPage, (currentPage + 1) * checkupsPerPage).map((history) => (
                                 <div
-                                    key={checkup.id}
-                                    className="hidden md:grid grid-cols-6 gap-4 px-6 py-4 border-b  border-[#E5E7EB] hover:bg-[#F9FAFB] transition-colors items-center"
+                                    key={history.id}
+                                    className="hidden md:grid grid-cols-6 gap-4 px-6 py-4 border-b border-[#E5E7EB] hover:bg-[#F9FAFB] transition-colors items-center"
                                 >
                                     <div className="font-satoshi text-[14px] text-[#080E0D]">
-                                        {checkup.visitDate}
+                                        {new Date(history.consultation_date).toLocaleDateString()}
                                     </div>
                                     <div className="font-satoshi text-[14px] text-[#080E0D]">
-                                        {checkup.facility}
+                                        {history.doctor_name || 'N/A'}
                                     </div>
                                     <div className="font-satoshi text-[14px] text-[#080E0D]">
-                                        {checkup.temperature}
+                                        {history.diagnosis || 'N/A'}
                                     </div>
                                     <div className="font-satoshi text-[14px] text-[#080E0D]">
-                                        {checkup.pulseRate}
+                                        {history.treatment || 'N/A'}
                                     </div>
                                     <div className="font-satoshi text-[14px] text-[#080E0D]">
-                                        {checkup.bloodPressure}
+                                        {history.status || 'Completed'}
                                     </div>
                                     <div className="flex justify-center">
                                         <button
@@ -559,7 +685,8 @@ export function PatientDetails() {
                                         </button>
                                     </div>
                                 </div>
-                            ))}
+                            ))
+                        )}
                     </div>
 
                     {/* Pagination Controls */}
@@ -583,26 +710,26 @@ export function PatientDetails() {
                 </button>
 
                 <div className="font-mulish text-[14px] text-[#7A7A7A]">
-                    Page {currentPage + 1} of {Math.ceil((medicalCheckupData[patient.id]?.length || 0) / checkupsPerPage)}
+                    Page {currentPage + 1} of {Math.ceil((patientHistory?.history?.length || 0) / checkupsPerPage)}
                 </div>
 
                 <button
                     onClick={() => {
-                        const maxPage = Math.ceil((medicalCheckupData[patient.id]?.length || 0) / checkupsPerPage) - 1;
+                        const maxPage = Math.ceil((patientHistory?.history?.length || 0) / checkupsPerPage) - 1;
                         setCurrentPage(prev => Math.min(maxPage, prev + 1));
                     }}
-                    disabled={currentPage >= Math.ceil((medicalCheckupData[patient.id]?.length || 0) / checkupsPerPage) - 1}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${currentPage >= Math.ceil((medicalCheckupData[patient.id]?.length || 0) / checkupsPerPage) - 1
+                    disabled={currentPage >= Math.ceil((patientHistory?.history?.length || 0) / checkupsPerPage) - 1}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${currentPage >= Math.ceil((patientHistory?.history?.length || 0) / checkupsPerPage) - 1
                         ? 'border-[#E5E7EB] hover:bg-[#F9FAFB] opacity-50 cursor-not-allowed'
                         : 'border-[#418BF5] hover:bg-[#F9FAFB]'
                         }`}
                 >
-                    <span className={`font-mulish font-semibold text-[14px] ${currentPage >= Math.ceil((medicalCheckupData[patient.id]?.length || 0) / checkupsPerPage) - 1
+                    <span className={`font-mulish font-semibold text-[14px] ${currentPage >= Math.ceil((patientHistory?.history?.length || 0) / checkupsPerPage) - 1
                         ? 'text-[#080E0D]' : 'text-[#418BF5]'
                         }`}>
                         Next
                     </span>
-                    <ChevronRight className={`w-5 h-5 strokeWidth-2 ${currentPage >= Math.ceil((medicalCheckupData[patient.id]?.length || 0) / checkupsPerPage) - 1
+                    <ChevronRight className={`w-5 h-5 strokeWidth-2 ${currentPage >= Math.ceil((patientHistory?.history?.length || 0) / checkupsPerPage) - 1
                         ? 'text-[#080E0D]' : 'text-[#418BF5]'
                         }`} />
                 </button>

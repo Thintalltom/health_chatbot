@@ -1,4 +1,11 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { store, persistor } from './store';
+import { AuthValidator } from './components/AuthValidator';
 import { Layout } from './components/layout/Layout';
 import { WelcomeBanner } from './components/ui/WelcomeBanner';
 import { OverviewSection } from './components/ui/OverviewSection';
@@ -25,23 +32,46 @@ function Dashboard() {
   );
 }
 
+function AppContent() {
+  return (
+    <AuthValidator>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/patient/:id" element={<PatientDetails />} />
+            <Route path="/patient-details/:id" element={<PatientDetailsView />} />
+            <Route path="/consultation/:id" element={<ConsultationSession />} />
+            <Route path='/patientTable' element={<PatientTables />} />
+          </Route>
+        </Routes>
+      </Router>
+    </AuthValidator>
+  );
+}
+
 export function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/patient/:id" element={<PatientDetails />} />
-          <Route path="/patient-details/:id" element={<PatientDetailsView />} />
-          <Route path="/consultation/:id" element={<ConsultationSession />} />
-          <Route path='/patientTable' element={<PatientTables />} />
-        </Route>
-      </Routes>
-    </Router>
+    <Provider store={store}>
+      <PersistGate loading={<div>Loading...</div>} persistor={persistor}>
+        <AppContent />
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
+      </PersistGate>
+    </Provider>
   );
 }

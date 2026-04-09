@@ -1,14 +1,15 @@
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
+import { useAppSelector } from '../store/hooks';
 
 interface ProtectedRouteProps {
     children: ReactNode;
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
     
-    if (!isLoggedIn) {
+    if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
     }
     

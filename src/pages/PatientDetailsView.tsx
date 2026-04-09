@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { useStartConsultationMutation, useGetActiveConsultationQuery } from '../store/slices/dashboardApiSlice';
 import { Breadcrumb } from '../components/ui/Breadcrumb';
 import { StatCard } from '../components/ui/StatCard';
 import { Activity, Heart, Thermometer, Wind, } from 'lucide-react';
@@ -17,6 +18,7 @@ import clipboardText from '../assets/svgs/clipboard-text.svg';
 import { ReusableLineChart } from '../components/ui/ReusableLineChart';
 import doctor from '../assets/svgs/doctor.svg'
 import hospital from '../assets/svgs/hospital.svg'
+import chatIcon from '../assets/svgs/messages-2.png'
 interface PatientData {
     id: number;
     name: string;
@@ -178,6 +180,9 @@ const patientsData: PatientData[] = [
 export function PatientDetailsView() {
     const { id } = useParams();
     const location = useLocation();
+    const navigate = useNavigate();
+    const [startConsultation, { isLoading: isStartingConsultation }] = useStartConsultationMutation();
+    const { data: activeConsultation, refetch: refetchActiveConsultation } = useGetActiveConsultationQuery();
 
     // Determine the source page from the location state or referrer
     const isFromScheduledPatients = location.state?.from === 'scheduled' ||
@@ -190,6 +195,68 @@ export function PatientDetailsView() {
     const patient = useMemo(() => {
         return patientsData.find(p => p.id === Number(id));
     }, [id]);
+
+    const handleStartConsultation = async () => {
+        if (!patient) return;
+        
+        try {
+            const vitalsData = {
+                blood_pressure: patient.bloodPressure || '120/80',
+                temperature: patient.temperature || '36.5°C',
+                pulse_rate: patient.pulseRate || '72bpm',
+                notes: 'Starting consultation from patient details view'
+            };
+            
+            try {
+                const result = await startConsultation({
+                    patient_id: patient.id.toString(),
+                    vitals: vitalsData,
+                }).unwrap();
+
+                console.log('Consultation started:', result);
+                
+                // Navigate to consultation page with the consultation ID
+                const consultationId = result.id || patient.id.toString();
+                navigate(`/consultation/${consultationId}`);
+                
+            } catch (error: any) {
+                console.error('Consultation error:', error);
+                
+                // Check if user already has an active consultation
+                if (error?.data?.detail?.includes('already have an active consultation') || 
+                    error?.message?.includes('already have an active consultation')) {
+                    
+                    console.log('User has active consultation, fetching active consultation details...');
+                    
+                    try {
+                        // Refetch active consultation to get the correct consultation ID
+                        const activeConsultationResult = await refetchActiveConsultation();
+                        const activeConsultationId = activeConsultationResult.data?.id;
+                        
+                        if (activeConsultationId) {
+                            console.log('Found active consultation ID:', activeConsultationId);
+                            navigate(`/consultation/${activeConsultationId}`);
+                        } else {
+                            console.log('No active consultation ID found, using patient ID as fallback');
+                            navigate(`/consultation/${patient.id}`);
+                        }
+                    } catch (fetchError) {
+                        console.error('Error fetching active consultation:', fetchError);
+                        // Fallback to patient ID
+                        navigate(`/consultation/${patient.id}`);
+                    }
+                    
+                } else {
+                    // Handle other errors
+                    alert('Failed to start consultation. Please try again.');
+                    throw error;
+                }
+            }
+            
+        } catch (error) {
+            console.error('Failed to start consultation:', error);
+        }
+    };
 
 
     const [currentSlide, setCurrentSlide] = useState(0);
@@ -265,10 +332,14 @@ export function PatientDetailsView() {
                             </div>
                         </div>
                     </div>
-                    {/* <button className="bg-[#1F5EDB] flex gap-[2px] hover:bg-gray-50 transition-colors text-white h-[46px] w-[225px] font-satoshi font-bold text-[16px] px-6 py-3 rounded-xl shadow-sm">
-                        <span>icon</span>
-                        Start Consultations
-                    </button> */}
+                    <button
+                        onClick={handleStartConsultation}
+                        disabled={isStartingConsultation}
+                        className="bg-gradient-to-r from-[#418BF5] via-[#418BF5] to-[#1F5EDB] flex gap-[12px] hover:from-[#3A7BD5] hover:via-[#3A7BD5] hover:to-[#1A52C7] transition-all text-white h-[46px] w-[225px] font-satoshi font-bold text-[16px] px-6 py-3 rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed items-center justify-center"
+                    >
+                        <span><img src={chatIcon} alt="chat" /></span>
+                        {isStartingConsultation ? 'Starting...' : 'Start Consultations'}
+                    </button>
                 </div>
             </div>
 

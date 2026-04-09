@@ -1,7 +1,19 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { toast } from 'react-toastify';
+import { RootState } from '../store';
 import { Breadcrumb } from '../components/ui/Breadcrumb';
-import { Mic, Square, Send, Stethoscope, Brain, Sparkles } from 'lucide-react';
+import { Square, Send, Sparkles } from 'lucide-react';
+import { 
+  useGenerateSoapMutation, 
+  useUploadAudioMutation, 
+  useEndConsultationMutation,
+} from '../store/slices/consultationApiSlice';
+import { useGetActiveConsultationQuery } from '../store/slices/dashboardApiSlice';
+import { useTranscriptionWebSocket } from '../store/slices/useTranscriptionWebSocket';
 import microphone from '../assets/svgs/microphone-2.svg'
 import Notetext from '../assets/svgs/Notext.svg'
 interface TranscriptionEntry {
@@ -9,23 +21,97 @@ interface TranscriptionEntry {
     type: 'voice' | 'note';
     content: string;
     timestamp: string;
+    speaker?: string;
+    speaker_label?: string;
+}
+
+interface SoapNote {
+    subjective: string;
+    objective: string;
+    assessment: string;
+    plan: string;
+    is_draft: boolean;
+    edited_by_doctor: boolean;
+    generated_at: string;
+}
+
+interface AISuggestion {
+    type: 'follow_up' | 'recommendation';
+    text: string;
+    generated_at: string;
+    used: boolean;
 }
 
 export function ConsultationSession() {
     const { id } = useParams();
     const location = useLocation();
+    const token = useSelector((state: RootState) => state.auth.token);
+    
+    // Get active consultation to resolve correct IDs
+    const { data: activeConsultationData } = useGetActiveConsultationQuery();
+    
+    // Use correct IDs from active consultation
+    const consultationId = activeConsultationData?.active?.id || id;
+    const patientId = activeConsultationData?.active?.patient_id || id;
+    
+    // API hooks
+    const [generateSoap] = useGenerateSoapMutation();
+    const [uploadAudio] = useUploadAudioMutation();
+    const [endConsultation] = useEndConsultationMutation();
+    // const [updateTranscript] = useUpdateTranscriptMutation();
+    // const [updateSoapNote] = useUpdateSoapNoteMutation();
+    
+    // State
     const [isRecording, setIsRecording] = useState(false);
     const [transcriptions, setTranscriptions] = useState<TranscriptionEntry[]>([]);
     const [noteInput, setNoteInput] = useState('');
     const [currentTranscription, setCurrentTranscription] = useState('');
     const [hasRecorded, setHasRecorded] = useState(false);
     const [audioLevel, setAudioLevel] = useState(0);
+    const [recordedAudioBlob, setRecordedAudioBlob] = useState<Blob | null>(null);
+    const [_soapNote, setSoapNote] = useState<SoapNote | null>(null);
+    const [isConsultationEnded, setIsConsultationEnded] = useState(false);
+    const [_aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
+    const [_wsError, setWsError] = useState<string | null>(null);
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const recognitionRef = useRef<any>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
     const animationFrameRef = useRef<number>();
+
+    // WebSocket for live transcription
+    const {
+        connect: connectWs,
+        disconnect: disconnectWs,
+        startSession: startWsSession,
+        stopSession: stopWsSession,
+        startAudioStreaming,
+        stopAudioStreaming,
+        isConnected: wsConnected,
+        isStarted: wsStarted,
+    } = useTranscriptionWebSocket({
+        consultationId: consultationId!,
+        patientId: patientId!,
+        onTranscriptEntry: (entry) => {
+            const newEntry: TranscriptionEntry = {
+                id: Date.now(),
+                type: 'voice',
+                content: entry.text,
+                timestamp: new Date(entry.timestamp).toLocaleTimeString(),
+                speaker: entry.speaker,
+                speaker_label: entry.speaker_label,
+            };
+            setTranscriptions(prev => [...prev, newEntry]);
+        },
+        onSuggestions: (suggestions) => {
+            setAiSuggestions(prev => [...prev, ...suggestions]);
+        },
+        onError: (error) => {
+            setWsError(error);
+            console.error('WebSocket error:', error);
+        },
+    });
 
     // Determine the source page from the location state or referrer
     const isFromScheduledPatients = location.state?.from === 'scheduled' ||
@@ -35,7 +121,18 @@ export function ConsultationSession() {
     const sourcePage = isFromScheduledPatients ? 'Scheduled Patients' : 'All Patients';
     const sourcePath = isFromScheduledPatients ? '/patientTable?tab=scheduled' : '/patientTable?tab=all';
 
-    // Initialize speech recognition
+    // Load existing consultation data - WebSocket disabled for now
+    useEffect(() => {
+        // WebSocket connection disabled due to server issues
+        // TODO: Re-enable when WebSocket server is available
+        console.log('=== CONSULTATION SESSION ===');
+        console.log('URL Parameter ID:', id);
+        console.log('Consultation ID:', consultationId);
+        console.log('Patient ID:', patientId);
+        console.log('Active consultation data:', activeConsultationData);
+        console.log('============================');
+    }, [id, consultationId, patientId, activeConsultationData]);
+    // Initialize speech recognition and WebSocket session
     useEffect(() => {
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
@@ -98,6 +195,7 @@ export function ConsultationSession() {
 
     const startRecording = async () => {
         try {
+            // WebSocket disabled - using local recording only
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorderRef.current = new MediaRecorder(stream);
 
@@ -108,6 +206,12 @@ export function ConsultationSession() {
             analyserRef.current.fftSize = 256;
             source.connect(analyserRef.current);
 
+            mediaRecorderRef.current.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    setRecordedAudioBlob(event.data);
+                }
+            };
+
             mediaRecorderRef.current.start();
             setIsRecording(true);
             setHasRecorded(true);
@@ -115,6 +219,7 @@ export function ConsultationSession() {
             // Start audio level monitoring
             monitorAudioLevel();
 
+            // Use local speech recognition as fallback
             if (recognitionRef.current) {
                 recognitionRef.current.start();
             }
@@ -165,9 +270,68 @@ export function ConsultationSession() {
         }
     };
 
-    const generateSummary = () => {
-        // Placeholder for AI summary generation
-        console.log('Generating AI summary...');
+    const generateSummary = async () => {
+        if (!consultationId) {
+            console.error('No consultation ID available');
+            return;
+        }
+        
+        try {
+            // Step 1: Upload recorded audio file (HTTP POST)
+            if (recordedAudioBlob) {
+                console.log('Uploading audio file...', {
+                    consultationId,
+                    patientId,
+                    audioSize: recordedAudioBlob.size
+                });
+                
+                await uploadAudio({ 
+                    consultation_id: consultationId, 
+                    patient_id: patientId, 
+                    audio: recordedAudioBlob 
+                }).unwrap();
+                console.log('Audio uploaded successfully');
+            }
+            
+            // Step 2: Generate SOAP note from transcript (HTTP POST)
+            console.log('Generating SOAP note...');
+            const generatedSoap = await generateSoap({ 
+                consultation_id: consultationId, 
+                patient_id: patientId 
+            }).unwrap();
+            
+            setSoapNote(generatedSoap);
+            console.log('SOAP note generated successfully:', generatedSoap);
+        } catch (error: any) {
+            console.error('Error generating summary:', error);
+            
+            // Show user-friendly error message
+            let errorMessage = 'Failed to generate summary';
+            if (error?.data?.detail) {
+                errorMessage = error.data.detail;
+            } else if (error?.message) {
+                errorMessage = error.message;
+            }
+            
+            toast.error(errorMessage);
+        }
+    };
+    
+    const handleEndConsultation = async () => {
+        if (!consultationId) return;
+        
+        try {
+            console.log('Ending consultation...');
+            await endConsultation({ 
+                consultation_id: consultationId, 
+                patient_id: patientId 
+            }).unwrap();
+            
+            setIsConsultationEnded(true);
+            console.log('Consultation ended successfully');
+        } catch (error) {
+            console.error('Error ending consultation:', error);
+        }
     };
 
     return (
@@ -175,7 +339,7 @@ export function ConsultationSession() {
             <Breadcrumb items={[
                 { label: 'Home' },
                 { label: sourcePage, path: sourcePath },
-                { label: 'Patient Details', path: `/patient/${id}` },
+                { label: 'Patient Details', path: `/patient/${patientId}` },
                 { label: 'Consultation Session', isActive: true }
             ]} />
 

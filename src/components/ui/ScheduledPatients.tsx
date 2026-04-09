@@ -1,4 +1,4 @@
-import  { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   UsersIcon,
@@ -9,109 +9,33 @@ import {
   CheckCircle2Icon,
   EyeIcon,
   Check
-} from
-  'lucide-react';
+} from 'lucide-react';
 import { Table, TableColumn } from '../ui/Table';
-interface PatientData {
-  id: number;
+import { useGetAllPatientsQuery } from '../../store/slices/patientApiSlice';
+
+interface PatientDisplayData {
+  id: string;
   name: string;
   age: number;
   gender: string;
-  paymentType: string;
-  status: 'Pending' | 'Seen';
+  phone: string;
+  status: 'Scheduled' | 'Recent';
 }
-const patientsData: PatientData[] = [
-  {
-    id: 1,
-    name: 'Adaobi Nnaji',
-    age: 18,
-    gender: 'Female',
-    paymentType: 'HMO',
-    status: 'Pending'
-  },
-  {
-    id: 2,
-    name: 'Bola Kazeem',
-    age: 22,
-    gender: 'Female',
-    paymentType: 'HMO',
-    status: 'Pending'
-  },
-  {
-    id: 3,
-    name: 'Emeka Okafor',
-    age: 25,
-    gender: 'Male',
-    paymentType: 'Self-pay',
-    status: 'Seen'
-  },
-  {
-    id: 4,
-    name: 'Chika Anozie',
-    age: 30,
-    gender: 'Female',
-    paymentType: 'HMO',
-    status: 'Pending'
-  },
-  {
-    id: 5,
-    name: 'Nkechi Uche',
-    age: 35,
-    gender: 'Male',
-    paymentType: 'Self Pay',
-    status: 'Pending'
-  },
-  {
-    id: 6,
-    name: 'Ifeanyi Eze',
-    age: 40,
-    gender: 'Male',
-    paymentType: 'HMO',
-    status: 'Seen'
-  },
-  {
-    id: 7,
-    name: 'Ogechi Onwuka',
-    age: 45,
-    gender: 'Male',
-    paymentType: 'Self Pay',
-    status: 'Seen'
-  },
-  {
-    id: 8,
-    name: 'Tunde Balogun',
-    age: 50,
-    gender: 'Male',
-    paymentType: 'Self Pay',
-    status: 'Seen'
-  },
-  {
-    id: 9,
-    name: 'Sofia Adeyemi',
-    age: 55,
-    gender: 'Female',
-    paymentType: 'HMO',
-    status: 'Pending'
-  },
-  {
-    id: 10,
-    name: 'Daniel Obinna',
-    age: 28,
-    gender: 'Male',
-    paymentType: 'Self Pay',
-    status: 'Seen'
-  }];
 
 export function ScheduledPatients() {
   const navigate = useNavigate();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Fetch patients data
+  const { data: patientsResponse, isLoading, error } = useGetAllPatientsQuery({});
 
   // Get status filter from URL
   const params = new URLSearchParams(window.location.search);
   const statusFilter = params.get('status') || 'All';
 
   // Filter options
-  const filterOptions = ['All', 'Pending', 'Seen'];
+  const filterOptions = ['All', 'Scheduled', 'Recent'];
 
   // Handle filter change
   const handleFilterChange = (filter: string) => {
@@ -126,42 +50,73 @@ export function ScheduledPatients() {
     window.location.reload();
   };
 
-  // Filter table data based on selected status
+  // Transform API data to display format
+  const transformedData = useMemo(() => {
+    if (!patientsResponse?.patients) return [];
+    
+    return patientsResponse.patients.map(patient => {
+      // Determine if patient is "scheduled" (recent) or not
+      const createdDate = new Date(patient.created_at);
+      const daysSinceCreated = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
+      
+      return {
+        id: patient.id,
+        name: patient.name,
+        age: patient.age,
+        gender: patient.gender,
+        phone: patient.contact?.phone || 'N/A',
+        status: daysSinceCreated <= 7 ? 'Scheduled' : 'Recent'
+      } as PatientDisplayData;
+    });
+  }, [patientsResponse]);
+
+  // Filter table data based on selected status and search
   const filteredData = useMemo(() => {
-    if (statusFilter === 'All') {
-      return patientsData;
+    let data = transformedData;
+    
+    // Apply status filter
+    if (statusFilter !== 'All') {
+      data = data.filter(patient => patient.status === statusFilter);
     }
-    return patientsData.filter(patient => patient.status === statusFilter);
-  }, [statusFilter]);
-  const columns: TableColumn<PatientData>[] = [
+    
+    // Apply search filter
+    if (searchTerm) {
+      data = data.filter(patient =>
+        patient.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    return data.slice(0, 10); // Limit to 10 for dashboard
+  }, [transformedData, statusFilter, searchTerm]);
+  const columns: TableColumn<PatientDisplayData>[] = [
     { key: 'name', label: 'Name', width: 'w-[28%]' },
     { key: 'age', label: 'Age', width: 'w-[12%]' },
     { key: 'gender', label: 'Gender', width: 'w-[15%]' },
-    { key: 'paymentType', label: 'Payment Type', width: 'w-[18%]' },
+    { key: 'phone', label: 'Phone', width: 'w-[25%]' },
     {
       key: 'status',
       label: 'Status',
-      width: 'w-[17%]',
+      width: 'w-[20%]',
       render: (value: string) =>
-        value === 'Pending' ? (
+        value === 'Scheduled' ? (
           <div className="inline-flex items-center gap-2 bg-[#FFFAEC] px-3 py-1.5 rounded-lg">
             <TimerIcon className="w-4 h-4 text-[#FFC107]" strokeWidth={2.5} />
             <span className="font-mulish font-semibold text-[12px] text-[#FFC107]">
-              Pending
+              Scheduled
             </span>
           </div>
         ) : (
           <div className="inline-flex items-center gap-2 bg-[#E6FFE1] px-3 py-1.5 rounded-lg">
             <CheckCircle2Icon className="w-4 h-4 text-[#2CA913]" strokeWidth={2.5} />
             <span className="font-mulish font-semibold text-[12px] text-[#2CA913]">
-              Seen
+              Recent
             </span>
           </div>
         )
     }
   ];
 
-  const handleAction = (patient: PatientData) => (
+  const handleAction = (patient: PatientDisplayData) => (
     <button
       onClick={() => navigate(`/patient/${patient.id}`)}
       className="p-2 rounded-lg hover:bg-gray-100 transition-colors inline-flex items-center justify-center text-[#7A7A7A] group-hover:text-[#418BF5]">
@@ -182,13 +137,11 @@ export function ScheduledPatients() {
             Scheduled Patients
           </h2>
         </div>
-        <button    onClick={() => {navigate('/patientTable')}} className="w-10 h-10 rounded-xl border border-[#EDEDED] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors">
+        <button onClick={() => { navigate('/patientTable') }} className="w-10 h-10 rounded-xl border border-[#EDEDED] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors">
           <ArrowUpRightIcon
             className="w-5 h-5 text-[#418BF5]"
-            strokeWidth={2.5} 
-         
-            />
-
+            strokeWidth={2.5}
+          />
         </button>
       </div>
 
@@ -198,6 +151,8 @@ export function ScheduledPatients() {
           <input
             type="text"
             placeholder="Search by Patient Name"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full rounded-xl border border-[#EDEDED] px-4 py-3 pr-10 font-mulish text-[14px] text-[#080E0D] placeholder-[#BCBCBC] focus:outline-none focus:border-[#418BF5] focus:ring-1 focus:ring-[#418BF5] transition-all" />
 
           <SearchIcon
@@ -247,12 +202,32 @@ export function ScheduledPatients() {
       </div>
 
       {/* Table */}
-      <Table<PatientData>
-        columns={columns}
-        data={filteredData}
-        rowKey="id"
-        actions={handleAction}
-      />
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center py-8">
+          <div className="text-[#7A7A7A] font-mulish text-[14px]">
+            Loading patients...
+          </div>
+        </div>
+      ) : error ? (
+        <div className="flex-1 flex items-center justify-center py-8">
+          <div className="text-red-500 font-mulish text-[14px]">
+            Error loading patients
+          </div>
+        </div>
+      ) : filteredData.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center py-8">
+          <div className="text-[#7A7A7A] font-mulish text-[14px]">
+            No patients found
+          </div>
+        </div>
+      ) : (
+        <Table<PatientDisplayData>
+          columns={columns}
+          data={filteredData}
+          rowKey="id"
+          actions={handleAction}
+        />
+      )}
     </div>
   );
 }

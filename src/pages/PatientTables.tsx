@@ -12,115 +12,13 @@ import {
     ChevronRight
 } from 'lucide-react';
 import { Breadcrumb } from '../components/ui/Breadcrumb';
+import { 
+    useGetAllPatientsQuery, 
+    useGetPatientVitalsQuery, 
+    useGetPatientHistoryQuery 
+} from '../store/slices/patientApiSlice';
 
-interface PatientData {
-    id: number;
-    name: string;
-    age: number;
-    gender: string;
-    paymentType: string;
-    status: 'Pending' | 'Seen';
-}
 
-const patientsData: PatientData[] = [
-    {
-        id: 1,
-        name: 'Adaobi Nnaji',
-        age: 18,
-        gender: 'Female',
-        paymentType: 'HMO',
-        status: 'Pending'
-    },
-    {
-        id: 2,
-        name: 'Bola Kazeem',
-        age: 22,
-        gender: 'Female',
-        paymentType: 'HMO',
-        status: 'Pending'
-    },
-    {
-        id: 3,
-        name: 'Emeka Okafor',
-        age: 25,
-        gender: 'Male',
-        paymentType: 'Self-pay',
-        status: 'Seen'
-    },
-    {
-        id: 4,
-        name: 'Chika Anozie',
-        age: 30,
-        gender: 'Female',
-        paymentType: 'HMO',
-        status: 'Pending'
-    },
-    {
-        id: 5,
-        name: 'Nkechi Uche',
-        age: 35,
-        gender: 'Male',
-        paymentType: 'Self Pay',
-        status: 'Pending'
-    },
-    {
-        id: 6,
-        name: 'Ifeanyi Eze',
-        age: 40,
-        gender: 'Male',
-        paymentType: 'HMO',
-        status: 'Seen'
-    },
-    {
-        id: 7,
-        name: 'Ogechi Onwuka',
-        age: 45,
-        gender: 'Male',
-        paymentType: 'Self Pay',
-        status: 'Seen'
-    },
-    {
-        id: 8,
-        name: 'Tunde Balogun',
-        age: 50,
-        gender: 'Male',
-        paymentType: 'Self Pay',
-        status: 'Seen'
-    },
-    {
-        id: 9,
-        name: 'Sofia Adeyemi',
-        age: 55,
-        gender: 'Female',
-        paymentType: 'HMO',
-        status: 'Pending'
-    },
-    {
-        id: 10,
-        name: 'Daniel Obinna',
-        age: 28,
-        gender: 'Male',
-        paymentType: 'Self Pay',
-        status: 'Seen'
-    },
-    // Additional patients for "All Patients" tab
-    {
-        id: 11,
-        name: 'Kemi Adebayo',
-        age: 32,
-        gender: 'Female',
-        paymentType: 'HMO',
-        status: 'Seen'
-    },
-    {
-        id: 12,
-        name: 'Yemi Oladele',
-        age: 27,
-        gender: 'Male',
-        paymentType: 'Self Pay',
-        status: 'Pending'
-    }
-];
 
 const PatientTables = () => {
     const navigate = useNavigate();
@@ -130,7 +28,43 @@ const PatientTables = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
     const [currentPage, setCurrentPage] = useState(0);
+    const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
     const patientsPerPage = 5;
+
+    // Fetch patients data
+    const { data: patientsResponse, isLoading, error } = useGetAllPatientsQuery({});
+    
+    // Fetch patient vitals and history when a patient is selected
+    const { data: patientVitals, isLoading: vitalsLoading } = useGetPatientVitalsQuery(
+        selectedPatientId!, 
+        { skip: !selectedPatientId }
+    );
+    
+    const { data: patientHistory, isLoading: historyLoading } = useGetPatientHistoryQuery(
+        selectedPatientId!, 
+        { skip: !selectedPatientId }
+    );
+
+    const handleViewPatient = (patientId: string) => {
+        // Set the selected patient to trigger API calls
+        setSelectedPatientId(patientId);
+        
+        // Navigate to patient details page
+        navigate(`/patient/${patientId}`);
+    };
+
+    // Log the fetched data when available
+    useEffect(() => {
+        if (selectedPatientId && patientVitals) {
+            console.log('Patient Vitals:', patientVitals);
+        }
+    }, [selectedPatientId, patientVitals]);
+
+    useEffect(() => {
+        if (selectedPatientId && patientHistory) {
+            console.log('Patient History:', patientHistory);
+        }
+    }, [selectedPatientId, patientHistory]);
 
     // Initialize tab from URL parameter
     useEffect(() => {
@@ -147,12 +81,16 @@ const PatientTables = () => {
 
     // Get data based on active tab
     const getTabData = () => {
+        const patients = patientsResponse?.patients || [];
         if (tabs === 1) {
-            // Scheduled patients - only pending ones
-            return patientsData.filter(patient => patient.status === 'Pending');
+            // Scheduled patients - filter based on some criteria (you can adjust this)
+            return patients.filter(patient => 
+                // Assuming patients with recent appointments are "scheduled"
+                new Date(patient.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+            );
         } else {
             // All patients
-            return patientsData;
+            return patients;
         }
     };
 
@@ -167,13 +105,8 @@ const PatientTables = () => {
             );
         }
 
-        // Apply status filter
-        if (statusFilter !== 'All') {
-            data = data.filter(patient => patient.status === statusFilter);
-        }
-
         return data;
-    }, [tabs, searchTerm, statusFilter]);
+    }, [tabs, searchTerm, patientsResponse]);
 
     // Pagination
     const totalPages = Math.ceil(filteredData.length / patientsPerPage);
@@ -210,96 +143,115 @@ const PatientTables = () => {
         return tabs === 1 ? 'Scheduled Patients' : 'All Patients';
     };
 
-    const renderTable = () => (
-        <div className="bg-white rounded-lg border border-[#E5E7EB] mt-6">
-            {/* Table Header */}
-            <div className="hidden md:grid grid-cols-6 gap-4 bg-[#F9FAFB] px-6 py-4 border-b border-[#E5E7EB] font-mulish font-semibold text-[14px] text-[#7A7A7A]">
-                <div>Name</div>
-                <div>Age</div>
-                <div>Gender</div>
-                <div>Payment Type</div>
-                <div>Status</div>
-                <div className="text-center">Action</div>
-            </div>
-
-            {/* Table Body */}
-            <div>
-                {paginatedData.map((patient) => (
-                    <div
-                        key={patient.id}
-                        className="hidden md:grid grid-cols-6 gap-4 px-6 py-4 border-b border-[#E5E7EB] hover:bg-[#F9FAFB] transition-colors items-center group"
-                    >
-                        <div className="font-satoshi text-[14px] text-[#080E0D]">
-                            {patient.name}
-                        </div>
-                        <div className="font-satoshi text-[14px] text-[#080E0D]">
-                            {patient.age}
-                        </div>
-                        <div className="font-satoshi text-[14px] text-[#080E0D]">
-                            {patient.gender}
-                        </div>
-                        <div className="font-satoshi text-[14px] text-[#080E0D]">
-                            {patient.paymentType}
-                        </div>
-                        <div>
-                            {patient.status === 'Pending' ? (
-                                <div className="inline-flex items-center gap-2 bg-[#FFFAEC] px-3 py-1.5 rounded-lg">
-                                    <TimerIcon className="w-4 h-4 text-[#FFC107]" strokeWidth={2.5} />
-                                    <span className="font-mulish font-semibold text-[12px] text-[#FFC107]">
-                                        Pending
-                                    </span>
-                                </div>
-                            ) : (
-                                <div className="inline-flex items-center gap-2 bg-[#E6FFE1] px-3 py-1.5 rounded-lg">
-                                    <CheckCircle2Icon className="w-4 h-4 text-[#2CA913]" strokeWidth={2.5} />
-                                    <span className="font-mulish font-semibold text-[12px] text-[#2CA913]">
-                                        Seen
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex justify-center">
-                            <button
-                                onClick={() => navigate(`/patient/${patient.id}`)}
-                                className="p-2 hover:bg-[#E5E7EB] rounded-lg transition-colors"
-                            >
-                                <EyeIcon className="w-5 h-5 text-[#418BF5]" strokeWidth={2} />
-                            </button>
-                        </div>
+    const renderTable = () => {
+        if (isLoading) {
+            return (
+                <div className="bg-white rounded-lg border border-[#E5E7EB] mt-6 p-8">
+                    <div className="text-center text-[#7A7A7A]">
+                        Loading patients...
                     </div>
-                ))}
-            </div>
+                </div>
+            );
+        }
 
-            {/* Pagination Controls */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-[#E5E7EB]">
-                <button
-                    onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
-                    disabled={currentPage === 0}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                    <ChevronLeft className="w-5 h-5 text-[#080E0D]" strokeWidth={2} />
-                    <span className="font-mulish font-semibold text-[14px] text-[#080E0D]">
-                        Previous
-                    </span>
-                </button>
+        if (error) {
+            return (
+                <div className="bg-white rounded-lg border border-[#E5E7EB] mt-6 p-8">
+                    <div className="text-center text-red-500">
+                        Error loading patients. Please try again.
+                    </div>
+                </div>
+            );
+        }
 
-                <div className="font-mulish text-[14px] text-[#7A7A7A]">
-                    Page {currentPage + 1} of {totalPages}
+        if (paginatedData.length === 0) {
+            return (
+                <div className="bg-white rounded-lg border border-[#E5E7EB] mt-6 p-8">
+                    <div className="text-center text-[#7A7A7A]">
+                        No patients found.
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="bg-white rounded-lg border border-[#E5E7EB] mt-6">
+                {/* Table Header */}
+                <div className="hidden md:grid grid-cols-6 gap-4 bg-[#F9FAFB] px-6 py-4 border-b border-[#E5E7EB] font-mulish font-semibold text-[14px] text-[#7A7A7A]">
+                    <div>Name</div>
+                    <div>Age</div>
+                    <div>Gender</div>
+                    <div>Payment Type</div>
+                    <div>Phone</div>
+                    <div className="text-center">Action</div>
                 </div>
 
-                <button
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
-                    disabled={currentPage >= totalPages - 1}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                    <span className="font-mulish font-semibold text-[14px] text-[#080E0D]">
-                        Next
-                    </span>
-                    <ChevronRight className="w-5 h-5 text-[#080E0D]" strokeWidth={2} />
-                </button>
+                {/* Table Body */}
+                <div>
+                    {paginatedData.map((patient) => (
+                        <div
+                            key={patient.id}
+                            className="hidden md:grid grid-cols-6 gap-4 px-6 py-4 border-b border-[#E5E7EB] hover:bg-[#F9FAFB] transition-colors items-center group"
+                        >
+                            <div className="font-satoshi text-[14px] text-[#080E0D]">
+                                {patient.name}
+                            </div>
+                            <div className="font-satoshi text-[14px] text-[#080E0D]">
+                                {patient.age}
+                            </div>
+                            <div className="font-satoshi text-[14px] text-[#080E0D]">
+                                {patient.gender}
+                            </div>
+                            <div className="font-satoshi text-[14px] text-[#080E0D]">
+                                {patient.payment_type}
+                            </div>
+                            <div className="font-satoshi text-[14px] text-[#080E0D]">
+                                {patient.contact?.phone}
+                            </div>
+                            <div className="flex justify-center">
+                                <button
+                                    onClick={() => handleViewPatient(patient.id)}
+                                    className="p-2 hover:bg-[#E5E7EB] rounded-lg transition-colors"
+                                    disabled={vitalsLoading || historyLoading}
+                                >
+                                    <EyeIcon className="w-5 h-5 text-[#418BF5]" strokeWidth={2} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="flex items-center justify-between px-6 py-4 border-t border-[#E5E7EB]">
+                    <button
+                        onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                        disabled={currentPage === 0}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        <ChevronLeft className="w-5 h-5 text-[#080E0D]" strokeWidth={2} />
+                        <span className="font-mulish font-semibold text-[14px] text-[#080E0D]">
+                            Previous
+                        </span>
+                    </button>
+
+                    <div className="font-mulish text-[14px] text-[#7A7A7A]">
+                        Page {currentPage + 1} of {totalPages}
+                    </div>
+
+                    <button
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+                        disabled={currentPage >= totalPages - 1}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        <span className="font-mulish font-semibold text-[14px] text-[#080E0D]">
+                            Next
+                        </span>
+                        <ChevronRight className="w-5 h-5 text-[#080E0D]" strokeWidth={2} />
+                    </button>
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
     return (
         <div className='rounded-[20px] bg-white shadow-sm p-[20px]'>
             <Breadcrumb items={[
@@ -355,46 +307,6 @@ const PatientTables = () => {
                         className="w-5 h-5 text-[#7A7A7A] absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none"
                         strokeWidth={2}
                     />
-                </div>
-
-                <div className="relative">
-                    <button
-                        onClick={() => setIsFilterOpen(!isFilterOpen)}
-                        className="rounded-xl border border-[#EDEDED] px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors"
-                    >
-                        <span className="font-mulish text-[14px] text-[#9B9B9B]">
-                            {statusFilter === 'All' ? 'Status' : statusFilter}
-                        </span>
-                        <FilterIcon className="w-4 h-4 text-[#353535]" strokeWidth={2} />
-                    </button>
-
-                    {/* Dropdown Menu */}
-                    {isFilterOpen && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-[#EDEDED] overflow-hidden z-50">
-                            {filterOptions.map((option) => (
-                                <button
-                                    key={option}
-                                    onClick={() => handleFilterChange(option)}
-                                    className={`w-full flex gap-3 px-4 py-3 transition-colors ${statusFilter === option
-                                        ? 'hover:bg-[#D4F7CC] justify-between flex-row-reverse'
-                                        : 'hover:bg-gray-50'
-                                        }`}
-                                >
-                                    {statusFilter === option && (
-                                        <Check className="w-4 h-4 text-[#2CA913]" strokeWidth={3} />
-                                    )}
-                                    <span
-                                        className={`font-mulish text-[14px] ${statusFilter === option
-                                            ? 'text-[#2CA913] font-semibold'
-                                            : 'text-[#080E0D]'
-                                            }`}
-                                    >
-                                        {option}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
                 </div>
             </div>
 
