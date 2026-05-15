@@ -1,5 +1,5 @@
-import { createApi } from '@reduxjs/toolkit/query/react';
-import { baseQueryWithReauth } from './baseQueryWithReauth';
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { baseQueryWithReauth } from "./baseQueryWithReauth";
 
 interface TranscriptEntry {
   speaker: string;
@@ -9,7 +9,7 @@ interface TranscriptEntry {
 }
 
 interface AISuggestion {
-  type: 'follow_up' | 'recommendation';
+  type: "follow_up" | "recommendation";
   text: string;
   generated_at: string;
   used: boolean;
@@ -32,7 +32,7 @@ interface ConsultationData {
   facility_name: string;
   doctor_id: string;
   doctor_name: string;
-  status: 'in_progress' | 'completed';
+  status: "in_progress" | "completed";
   started_at: string;
   ended_at?: string;
   vitals: Record<string, any>;
@@ -46,106 +46,130 @@ interface ConsultationData {
 }
 
 export const consultationApiSlice = createApi({
-  reducerPath: 'consultationApi',
+  reducerPath: "consultationApi",
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Consultation'],
+  tagTypes: ["Consultation"],
   endpoints: (builder) => ({
     // End consultation - PATCH /consultations/{consultation_id}/end
-    endConsultation: builder.mutation<ConsultationData, { consultation_id: string; patient_id: string }>({
+    endConsultation: builder.mutation<
+      ConsultationData,
+      { consultation_id: string; patient_id: string }
+    >({
       query: ({ consultation_id, patient_id }) => ({
         url: `/consultations/${consultation_id}/end`,
-        method: 'PATCH',
+        method: "PATCH",
         params: { patient_id },
       }),
-      invalidatesTags: ['Consultation'],
+      invalidatesTags: ["Consultation"],
     }),
 
     // Update transcript - PUT /consultations/{consultation_id}/transcript
-    updateTranscript: builder.mutation<ConsultationData, { 
-      consultation_id: string; 
-      patient_id: string; 
-      transcript: TranscriptEntry[] 
-    }>({
+    updateTranscript: builder.mutation<
+      ConsultationData,
+      {
+        consultation_id: string;
+        patient_id: string;
+        transcript: TranscriptEntry[];
+      }
+    >({
       query: ({ consultation_id, patient_id, transcript }) => ({
         url: `/consultations/${consultation_id}/transcript`,
-        method: 'PUT',
+        method: "PUT",
         params: { patient_id },
         body: { transcript },
       }),
-      invalidatesTags: ['Consultation'],
+      invalidatesTags: ["Consultation"],
     }),
 
     // Update SOAP note - PUT /consultations/{consultation_id}/soap
-    updateSoapNote: builder.mutation<ConsultationData, { 
-      consultation_id: string; 
-      patient_id: string; 
-      soap_note: Partial<SoapNote> 
-    }>({
+    updateSoapNote: builder.mutation<
+      ConsultationData,
+      {
+        consultation_id: string;
+        patient_id: string;
+        soap_note: Partial<SoapNote>;
+      }
+    >({
       query: ({ consultation_id, patient_id, soap_note }) => ({
         url: `/consultations/${consultation_id}/soap`,
-        method: 'PUT',
+        method: "PUT",
         params: { patient_id },
         body: soap_note,
       }),
-      invalidatesTags: ['Consultation'],
+      invalidatesTags: ["Consultation"],
     }),
 
     // Generate SOAP note - POST /consultations/{consultation_id}/generate-soap
-    generateSoap: builder.mutation<SoapNote, { consultation_id: string; patient_id: string }>({
+    generateSoap: builder.mutation<
+      string,
+      { consultation_id: string; patient_id: string }
+    >({
       query: ({ consultation_id, patient_id }) => ({
         url: `/consultations/${consultation_id}/generate-soap`,
-        method: 'POST',
+        method: "POST",
         params: { patient_id },
         body: { consultation_id, patient_id },
       }),
-      invalidatesTags: ['Consultation'],
+      invalidatesTags: ["Consultation"],
     }),
 
     // Upload audio - POST /consultations/{consultation_id}/audio
-    uploadAudio: builder.mutation<ConsultationData, { 
-      consultation_id: string; 
-      patient_id: string; 
-      audio: File | Blob 
-    }>({
+    uploadAudio: builder.mutation<
+      ConsultationData,
+      {
+        consultation_id: string;
+        patient_id: string;
+        audio: File | Blob;
+      }
+    >({
       query: ({ consultation_id, patient_id, audio }) => {
         const formData = new FormData();
-        formData.append('audio', audio, 'consultation-audio.webm');
-        
+        formData.append("audio", audio, "consultation-audio.webm");
+
         return {
           url: `/consultations/${consultation_id}/audio`,
-          method: 'POST',
+          method: "POST",
           params: { patient_id },
           body: formData,
         };
       },
-      invalidatesTags: ['Consultation'],
+      invalidatesTags: ["Consultation"],
     }),
 
     // Get consultation details
-    getConsultation: builder.query<ConsultationData, { consultation_id: string; patient_id: string }>({
+    getConsultation: builder.query<
+      ConsultationData,
+      { consultation_id: string; patient_id: string }
+    >({
       query: ({ consultation_id, patient_id }) => ({
         url: `/consultations/${consultation_id}`,
         params: { patient_id },
       }),
-      providesTags: ['Consultation'],
+      providesTags: ["Consultation"],
     }),
 
     // Get audio URL for playback
-    getAudioUrl: builder.query<{ audio_url: string }, { consultation_id: string; patient_id: string }>({
+    getAudioUrl: builder.query<
+      string,
+      { consultation_id: string; patient_id: string }
+    >({
       query: ({ consultation_id, patient_id }) => ({
         url: `/consultations/${consultation_id}/audio-url`,
         params: { patient_id },
       }),
+      transformResponse: (response: { audio_url: string } | string) =>
+        typeof response === "string" ? response : response.audio_url,
     }),
   }),
 });
 
-export const { 
+export const {
   useEndConsultationMutation,
   useUpdateTranscriptMutation,
   useUpdateSoapNoteMutation,
-  useGenerateSoapMutation, 
+  useGenerateSoapMutation,
   useUploadAudioMutation,
   useGetConsultationQuery,
   useGetAudioUrlQuery,
+  useLazyGetAudioUrlQuery,
 } = consultationApiSlice;
