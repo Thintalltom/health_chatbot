@@ -463,6 +463,14 @@ export function ConsultationSession() {
         }
     };
 
+    const latestTranscriptForSuggestion = (
+        currentTranscription.trim() || transcriptions[transcriptions.length - 1]?.content || ''
+    ).trim();
+
+    const liveSuggestionText = latestTranscriptForSuggestion
+        ? `Suggestion: Ask a focused follow-up to clarify "${latestTranscriptForSuggestion.slice(0, 100)}${latestTranscriptForSuggestion.length > 100 ? '...' : ''}".`
+        : 'Suggestion: Continue speaking clearly. A real-time suggestion will appear as transcription updates.';
+
     return (
         <div className='flex flex-col gap-[20px] bg-white rounded-[28px] border border-[#FAFAFA] shadow-[0px_1px_2px_rgba(0,0,0,0.04)] p-8'>
             <Breadcrumb items={[
@@ -583,7 +591,7 @@ export function ConsultationSession() {
                                 </div>
                             ))}
                         </div>
-                    ) : transcriptions.length === 0 && !currentTranscription ? (
+                    ) : transcriptions.length === 0 && !currentTranscription && !isRecording ? (
                         <div className="flex flex-col items-center justify-center flex-1 text-center">
                             <img src={Notetext} className='w-[177px] h-[149px]' />
                             <p className="font-mulish text-[16px] text-[#7A7A7A] max-w-md">
@@ -591,24 +599,47 @@ export function ConsultationSession() {
                             </p>
                         </div>
                     ) : (
-                        <div className="space-y-4">
-                            {/* Current transcription (interim results) */}
-                            {currentTranscription && (
-                                <div className="mb-4">
-                                    <p className="font-satoshi text-[14px] text-[#7A7A7A] leading-relaxed italic">
-                                        {currentTranscription}
-                                    </p>
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                            <div className="space-y-4 flex-1">
+                                {isRecording && transcriptions.length === 0 && !currentTranscription && (
+                                    <div className="mb-4">
+                                        <p className="font-satoshi text-[14px] text-[#7A7A7A] leading-relaxed italic">
+                                            Listening... your live transcript will appear here.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Current transcription (interim results) */}
+                                {currentTranscription && (
+                                    <div className="mb-4">
+                                        <p className="font-satoshi text-[14px] text-[#7A7A7A] leading-relaxed italic">
+                                            {currentTranscription}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Final transcriptions */}
+                                {transcriptions.map((entry) => (
+                                    <div key={entry.id} className="mb-4">
+                                        <p className="font-satoshi text-[14px] text-[#080E0D] leading-relaxed">
+                                            {entry.content}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {isRecording && (
+                                <div className="w-full lg:max-w-[300px] rounded-xl border border-[#D9E4F9] bg-white p-4 shadow-[0px_10px_25px_rgba(8,14,13,0.08)]">
+                                    <h4 className="font-satoshi font-bold text-[14px] text-[#080E0D] mb-2">
+                                        Suggestion
+                                    </h4>
+                                    <div className="rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+                                        <p className="font-mulish text-[13px] text-[#334155] leading-relaxed">
+                                            {liveSuggestionText}
+                                        </p>
+                                    </div>
                                 </div>
                             )}
-
-                            {/* Final transcriptions */}
-                            {transcriptions.map((entry) => (
-                                <div key={entry.id} className="mb-4">
-                                    <p className="font-satoshi text-[14px] text-[#080E0D] leading-relaxed">
-                                        {entry.content}
-                                    </p>
-                                </div>
-                            ))}
                         </div>
                     )}
                 </div>

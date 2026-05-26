@@ -1,14 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { BellIcon, X, CheckCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../store/hooks';
 import { useAuth } from '../../store/slices/useAuth';
-import { 
-  useGetNotificationsSummaryQuery, 
+import {
+  useGetNotificationsSummaryQuery,
   useGetNotificationsQuery,
-  useMarkAllNotificationsAsReadMutation 
+  useMarkAllNotificationsAsReadMutation
 } from '../../store/slices/notificationsApiSlice';
 import { UserProfile } from '../ui/UserProfile';
+import logo from '../../assets/png/MEDAUX-LOGO.png';
 export function NavBar() {
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
@@ -66,38 +67,52 @@ export function NavBar() {
     const date = new Date(dateString);
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
     return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
+  const today = new Date();
+  const currentMonthShort = today
+    .toLocaleString('en-US', { month: 'short' })
+    .toUpperCase();
+  const currentDayNumber = today.getDate();
+  const currentFullDate = today.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const currentWeekday = today.toLocaleDateString('en-US', {
+    weekday: 'long',
+  });
+
   return (
     <nav className="w-full bg-white rounded-[28px] shadow-[0px_2px_8px_rgba(0,0,0,0.04)] px-6 py-5 flex justify-between items-center">
       {/* Logo */}
       <div className="text-[#080E0D] font-satoshi font-bold text-[28px] tracking-tight ml-2">
-        LOGO
+        <img src={logo} alt="MedAUX Logo" className="w-full h-auto max-w-[200px] mx-auto mb-6" />
       </div>
 
       {/* Right Section */}
-      <div className="flex flex-row gap-5 items-center">
+      <div className="flex flex-row gap-5 items-center cursor-pointer">
         {/* Date Widget */}
         <div className="flex flex-row gap-3 items-center">
           <div className="flex flex-col shadow-[0px_2px_8px_rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
             <div className="bg-[#14B8A6] text-white font-mulish font-bold text-[10px] leading-none py-1.5 px-2 text-center">
-              FEB
+              {currentMonthShort}
             </div>
             <div className="bg-white text-[#080E0D] font-satoshi font-bold text-base py-1.5 px-2 text-center">
-              16
+              {currentDayNumber}
             </div>
           </div>
           <div className="flex flex-col justify-center">
             <span className="font-satoshi font-medium text-[18px] text-[#080E0D] leading-tight">
-              February 16, 2026.
+              {currentFullDate}
             </span>
             <span className="font-mulish font-medium text-[14px] text-[#9B9B9B] leading-tight mt-0.5">
-              Wednesday
+              {currentWeekday}
             </span>
           </div>
         </div>
@@ -107,7 +122,7 @@ export function NavBar() {
 
         {/* Notifications */}
         <div className="relative" ref={notificationRef}>
-          <div 
+          <div
             className="relative cursor-pointer p-2 hover:bg-gray-50 rounded-lg transition-colors"
             onClick={() => setShowNotifications(!showNotifications)}
           >
@@ -169,9 +184,8 @@ export function NavBar() {
                   notifications.notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`p-4 border-b border-[#F5F5F5] hover:bg-[#F9FAFB] transition-colors cursor-pointer ${
-                        !notification.is_read ? 'bg-[#F0F8FF]' : ''
-                      }`}
+                      className={`p-4 border-b border-[#F5F5F5] hover:bg-[#F9FAFB] transition-colors cursor-pointer ${!notification.is_read ? 'bg-[#F0F8FF]' : ''
+                        }`}
                     >
                       <div className="flex items-start gap-3">
                         <div className="text-lg mt-0.5">
@@ -202,7 +216,7 @@ export function NavBar() {
               {/* Footer */}
               {notifications?.notifications && notifications.notifications.length > 0 && (
                 <div className="p-3 border-t border-[#E5E7EB] text-center">
-                  <button 
+                  <button
                     onClick={() => {
                       setShowNotifications(false);
                       // Navigate to full notifications page if you have one

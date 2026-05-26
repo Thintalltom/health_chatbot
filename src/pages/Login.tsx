@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
-import loginImage from '../assets/svgs/image 5.svg'; // Using existing image, you can replace with a specific login image
+import loginImage from '../assets/png/LoginImage.png';
 
 export function Login() {
     const [email, setEmail] = useState('');
@@ -10,8 +10,6 @@ export function Login() {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
-
-    // Dummy credentials
     const DUMMY_EMAIL = 'admin@medaux.com';
     const DUMMY_PASSWORD = 'password123';
 
@@ -30,25 +28,27 @@ export function Login() {
         } else {
             setError('Invalid email or password. Please try again.');
         }
-        
+
         setIsLoading(false);
     };
 
     return (
-        <div className="min-h-screen flex">
+        <div className="min-h-screen flex flex-col lg:flex-row">
             {/* Left Side - Image */}
-            <div className="flex-1 bg-gradient-to-br from-[#418BF5] to-[#1F5EDB] flex items-center justify-center p-8">
-                <div className="max-w-md text-center">
-                    <img 
-                        src={loginImage} 
-                        alt="Medical Professional" 
-                        className="w-full h-auto max-w-[400px] mx-auto mb-6"
-                    />
-                    <h2 className="font-satoshi font-bold text-[28px] text-white mb-4">
-                        Healthcare Management Made Simple
+            <div className="flex-1 bg-[#F7FAFF] flex items-center justify-center p-6 lg:p-8">
+                <div className="w-full max-w-[560px] text-center">
+                    <div className="w-full h-[320px] sm:h-[380px] lg:h-[440px] overflow-hidden rounded-t-[28px] rounded-b-[84px] shadow-[0px_14px_35px_rgba(31,94,219,0.18)] border border-[#E5EEFF] bg-white">
+                        <img
+                            src={loginImage}
+                            alt="MedAux login"
+                            className="w-full h-full object-cover"
+                        />
+                    </div>
+                    <h2 className="font-satoshi font-bold text-[32px] text-[#0C2D68] mt-8 mb-3 tracking-wide">
+                        MEDAUX
                     </h2>
-                    <p className="font-mulish text-[16px] text-white/90 leading-relaxed">
-                        Streamline your medical practice with our comprehensive patient management system
+                    <p className="font-mulish text-[16px] text-[#38527A] leading-relaxed px-2">
+                        MedAux is an AI assistant that supports doctors during consultations with real-time transcription, smart suggestions, and automated session summaries.
                     </p>
                 </div>
             </div>
